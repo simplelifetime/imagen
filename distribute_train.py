@@ -6,6 +6,8 @@ from tqdm import tqdm
 from imagen_pytorch import t5
 import os
 import datetime
+from tensorboardX import SummaryWriter
+
 
 local_rank = int(os.environ["LOCAL_RANK"])
 torch.cuda.set_device(local_rank)
@@ -19,7 +21,7 @@ tme = datetime.date.today()
 
 def get_imagen():
     unet1 = Unet(
-        dim = 32,
+        dim = 64,
         cond_dim = 512,
         dim_mults = (1, 2, 4, 8),
         num_resnet_blocks = 3,
@@ -27,7 +29,7 @@ def get_imagen():
     )
 
     unet2 = Unet(
-        dim = 32,
+        dim = 64,
         cond_dim = 512,
         dim_mults = (1, 2, 4, 8),
         num_resnet_blocks = (2, 4, 8, 8),
@@ -58,7 +60,7 @@ train_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset)
 
 loader = DataLoader(
     dataset=test_dataset,
-    batch_size=64,
+    batch_size=32,
     # shuffle=True,
     pin_memory=False,
     drop_last=True,
@@ -71,7 +73,7 @@ imagen = torch.nn.parallel.DistributedDataParallel(imagen,
                                                       device_ids=[local_rank],
                                                       output_device=local_rank)
 
-def train_one_epoch():
+def train_one_epoch(epoch=0):
     for batch_ndx, sample in enumerate(tqdm(loader)):
         text_embeds, text_masks = t5.t5_encode_text(sample["text"])
         images = sample["image"]
@@ -85,13 +87,12 @@ def train_one_epoch():
             )
             trainer.update(unet_number = i)
 
-        if batch_ndx % 500 == 0:
-            print(f"avg_loss={loss}")
-        
         if batch_ndx % 2000 == 0:
-            save_path = "./logs/" + str(tme) + "/epochs_" + str(batch_ndx) + ".pt"
-            trainer.save(save_path)
-            print(f"save epochs to {save_path}")
+            print(f"avg_loss={loss}, epoch={epoch}")
+
         
 for i in range(epochs):
-    train_one_epoch()
+    train_one_epoch(i)
+    save_path = "./logs/" + str(tme) + "/epochs_" + str(i) + ".pt"
+    trainer.save(save_path)
+    print(f"save models to {save_path}")

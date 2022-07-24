@@ -25,11 +25,11 @@ def tensor2img(tensor):
 # unet for imagen
 epochs = 10
 
-load_path = "./logs/epochs_" + str(0) + ".pt"
+load_path = "./logs/2022-07-20/epochs_" + str(3) + ".pt"
 
 def get_imagen():
     unet1 = Unet(
-        dim = 32,
+        dim = 64,
         cond_dim = 512,
         dim_mults = (1, 2, 4, 8),
         num_resnet_blocks = 3,
@@ -37,7 +37,7 @@ def get_imagen():
     )
 
     unet2 = Unet(
-        dim = 32,
+        dim = 64,
         cond_dim = 512,
         dim_mults = (1, 2, 4, 8),
         num_resnet_blocks = (2, 4, 8, 8),
@@ -57,20 +57,19 @@ imagen = get_imagen()
 # wrap imagen with the trainer class
 trainer = ImagenTrainer(imagen).cuda()
 
-trainer.load(load_path)
+trainer = torch.load(load_path, map_location='cuda:0')
 
-imagen_test = trainer.load(load_path)
+imagen.load_state_dict(trainer['model'], strict = True)
+
+# imagen_test = trainer.load(load_path)
 
 IPython.embed()
 
-# images = trainer.imagen.sample(texts = [
-#     'rock',
-#     'river',
-#     'field',
-#     'sun',
-#     'city',
-#     'cockroach'
-# ], cond_scale = 3.)
+images = imagen.sample(texts = [
+    'A white door full of ties of various colors.',
+    'The plate of barbecue has baked beans on it.',
+    'A yellow fire hydrant next to a childs bike.',
+], cond_scale = 3.)
 
 # images = trainer.imagen.sample(texts = [
 #     'a whale breaching from afar',
